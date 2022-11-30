@@ -9,6 +9,22 @@ from dbbackup.tests.testapp.models import CharModel
 
 
 class SqliteConnectorTest(TestCase):
+    def test_write_dump_exclude(self):
+        with connection.cursor() as c:
+            c.execute("PRAGMA writable_schema = 1;")
+            c.execute("CREATE TABLE sqlite_foo( name varchar(255), seq int );")
+            c.execute("CREATE TABLE foo( name varchar(255), seq int );")
+
+        dump_file = BytesIO()
+        connector = SqliteConnector()
+        connector.exclude = ["foo"]
+        connector._write_dump(dump_file)
+        dump_file.seek(0)
+        for line in dump_file:
+            self.assertTrue(line.strip().endswith(b";"))
+            self.assertTrue(b"sqlite_foo" not in line)
+            self.assertTrue(b"foo" not in line)
+
     def test_write_dump(self):
         dump_file = BytesIO()
         connector = SqliteConnector()

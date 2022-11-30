@@ -50,6 +50,8 @@ CACHES = {
 
 SERVER_EMAIL = "dbbackup@test.org"
 
+DBBACKUP_FAILURE_RECIPIENTS = None
+
 DBBACKUP_GPG_RECIPIENT = "test@test"
 DBBACKUP_GPG_ALWAYS_TRUST = (True,)
 

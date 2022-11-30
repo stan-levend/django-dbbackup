@@ -21,6 +21,31 @@ class MongoDumpConnectorTest(TestCase):
         # Test cmd
         self.assertTrue(mock_dump_cmd.called)
 
+    def test_create_dump_exclude(self, mock_dump_cmd):
+        connector = MongoDumpConnector()
+        # Without
+        connector.create_dump()
+        self.assertNotIn(" --excludeCollection ", mock_dump_cmd.call_args[0][0])
+        # With
+        connector.exclude = ("foo",)
+        connector.create_dump()
+        self.assertIn(" --excludeCollection foo", mock_dump_cmd.call_args[0][0])
+        # With several
+        connector.exclude = ("foo", "bar")
+        connector.create_dump()
+        self.assertIn(" --excludeCollection foo", mock_dump_cmd.call_args[0][0])
+        self.assertIn(" --excludeCollection bar", mock_dump_cmd.call_args[0][0])
+
+    def test_create_dump_auth_source(self, mock_dump_cmd):
+        connector = MongoDumpConnector()
+        # Without
+        connector.create_dump()
+        self.assertNotIn(" --authenticationDatabase ", mock_dump_cmd.call_args[0][0])
+        # With
+        connector.settings["AUTH_SOURCE"] = "admin"
+        connector.create_dump()
+        self.assertIn(" --authenticationDatabase admin", mock_dump_cmd.call_args[0][0])
+
     def test_create_dump_user(self, mock_dump_cmd):
         connector = MongoDumpConnector()
         # Without
@@ -117,3 +142,24 @@ class MongoDumpConnectorTest(TestCase):
         connector.drop = True
         connector.restore_dump(dump)
         self.assertIn(" --drop", mock_restore_cmd.call_args[0][0])
+
+    @patch(
+        "dbbackup.db.mongodb.MongoDumpConnector.run_command",
+        return_value=(BytesIO(), BytesIO()),
+    )
+    def test_restore_dump_auth_source(self, mock_dump_cmd, mock_restore_cmd):
+        connector = MongoDumpConnector()
+        # Without
+        dump = connector.create_dump()
+        self.assertNotIn(" --authenticationDatabase ", mock_restore_cmd.call_args[0][0])
+        connector.restore_dump(dump)
+        self.assertTrue(mock_restore_cmd.called)
+
+        # With
+        connector.settings["AUTH_SOURCE"] = "admin"
+        dump = connector.create_dump()
+        self.assertIn(
+            " --authenticationDatabase admin", mock_restore_cmd.call_args[0][0]
+        )
+        connector.restore_dump(dump)
+        self.assertTrue(mock_restore_cmd.called)

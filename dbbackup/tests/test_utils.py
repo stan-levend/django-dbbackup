@@ -99,6 +99,22 @@ class Email_Uncaught_ExceptionTest(TestCase):
         if django.VERSION >= (1, 7):
             self.assertIn('Exception("Foo")', error_mail.body)
 
+    @patch("dbbackup.tests.settings.DBBACKUP_FAILURE_RECIPIENTS", ["foo@bar"])
+    @patch("dbbackup.settings.SEND_EMAIL", True)
+    def test_raise_with_mail_deprecated(self):
+        def func():
+            raise Exception("Foo")
+
+        print()
+        with self.assertRaises(Exception):
+            utils.email_uncaught_exception(func)()
+        self.assertEqual(len(mail.outbox), 1)
+        error_mail = mail.outbox[0]
+        self.assertEqual(["foo@bar"], error_mail.to)
+        self.assertIn('Exception("Foo")', error_mail.subject)
+        if django.VERSION >= (1, 7):
+            self.assertIn('Exception("Foo")', error_mail.body)
+
 
 class Encrypt_FileTest(TestCase):
     def setUp(self):
@@ -247,6 +263,34 @@ class Filename_GenerateTest(TestCase):
         generated_name = utils.filename_generate(extension)
         self.assertTrue("--" not in generated_name)
         self.assertFalse(generated_name.startswith("-"))
+
+    @patch(
+        "dbbackup.settings.FILENAME_TEMPLATE",
+        "---{databasename}--{servername}-{datetime}.{extension}",
+    )
+    def test_func_database_name_slash(self, *args):
+        extension = "foo"
+        generated_name = utils.filename_generate(extension, "default/foo")
+        self.assertTrue("--" not in generated_name)
+        self.assertTrue("/" not in generated_name)
+        self.assertFalse(generated_name.startswith("-"))
+
+    @patch(
+        "dbbackup.settings.FILENAME_TEMPLATE",
+        "---{databasename}--{servername}-{datetime}.{extension}",
+    )
+    def test_func_database_name_dot(self, *args):
+        extension = "foo"
+        generated_name = utils.filename_generate(extension, "default.bar")
+        self.assertTrue("--" not in generated_name)
+        self.assertTrue(".bar" not in generated_name)
+        self.assertFalse(generated_name.startswith("-"))
+
+    def test_func_content_type_none(self, *args):
+        extension = "foo"
+        generated_name = utils.filename_generate(extension, content_type=None)
+        self.assertTrue(generated_name.startswith(settings.HOSTNAME))
+        self.assertTrue(generated_name.endswith(extension))
 
     def test_db(self, *args):
         extension = "foo"
